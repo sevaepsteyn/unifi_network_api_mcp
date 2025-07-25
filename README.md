@@ -77,7 +77,7 @@ uv run unifi-network-api-mcp
 
 ### Using with Claude Desktop
 
-Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add MCP server to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 #### Using uv
 ```json
@@ -98,99 +98,6 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
     }
   }
 }
-```
-
-## Examples
-
-### Using with FastMCP Client
-
-```python
-import asyncio
-from fastmcp import Client
-
-async def main():
-    async with Client("unifi-network-api-mcp") as client:
-        # List all sites
-        sites_result = await client.call_tool("sites")
-        print(f"Found {sites_result.totalCount} sites")
-        
-        # Get devices for first site
-        site_id = sites_result.sites[0].id
-        devices_result = await client.call_tool("devices", site_id=site_id)
-        
-        # Restart a device
-        if devices.devices:
-            device_id = devices.devices[0].id
-            result = await client.call_tool(
-                "restart_device",
-                site_id=site_id,
-                device_id=device_id
-            )
-            print(result)
-
-asyncio.run(main())
-```
-
-### Common Use Cases
-
-#### Monitor Device Status
-
-```python
-# Get all online devices
-devices = await client.call_tool(
-    "search_devices",
-    site_id=site_id,
-    state="ONLINE"
-)
-
-# Get devices by name pattern
-ap_devices = await client.call_tool(
-    "search_devices",
-    site_id=site_id,
-    name_pattern="AP-*"
-)
-```
-
-#### Manage Guest Access
-
-```python
-# Authorize a guest for 2 hours with 1GB data limit
-await client.call_tool(
-    "authorize_guest",
-    site_id=site_id,
-    client_id=client_id,
-    time_limit_minutes=120,
-    data_usage_limit_mb=1024
-)
-```
-
-#### Create Vouchers
-
-```python
-# Create 10 day-pass vouchers
-vouchers = await client.call_tool(
-    "create_vouchers",
-    site_id=site_id,
-    name="Day Pass",
-    count=10,
-    time_limit_minutes=1440,  # 24 hours
-    authorized_guest_limit=1
-)
-
-for voucher in vouchers.vouchers:
-    print(f"Code: {voucher.code}")
-```
-
-## Error Handling
-
-The server provides detailed error information:
-
-```python
-try:
-    await client.call_tool("restart_device", site_id="invalid", device_id="invalid")
-except Exception as e:
-    print(f"Error: {e}")
-    # Error includes status code, message, and request ID for debugging
 ```
 
 ## Development
