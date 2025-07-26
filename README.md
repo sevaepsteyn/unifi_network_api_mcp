@@ -3,6 +3,10 @@
 
 A Model Context Protocol (MCP) server that provides access to UniFi Network Controller API functionality.
 
+## Demo
+
+![UniFi Network API MCP Demo](docs/demo/claude.gif)
+
 ### Available Tools
 
 #### Read Operations
