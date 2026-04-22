@@ -77,21 +77,23 @@ class PortState(str, Enum):
 
 class PortConnector(str, Enum):
     """Port connector type enum."""
-    
+
     RJ45 = "RJ45"
     SFP = "SFP"
     SFP_PLUS = "SFP+"
+    SFP_PLUS_ALT = "SFPPLUS"
 
 
 class WLANStandard(str, Enum):
     """WLAN standard enum."""
-    
+
     IEEE_802_11A = "802.11a"
     IEEE_802_11B = "802.11b"
     IEEE_802_11G = "802.11g"
     IEEE_802_11N = "802.11n"
     IEEE_802_11AC = "802.11ac"
     IEEE_802_11AX = "802.11ax"
+    IEEE_802_11BE = "802.11be"
 
 
 class ClientType(str, Enum):
