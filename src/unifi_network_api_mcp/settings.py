@@ -1,24 +1,42 @@
 """Configuration settings for UniFi Network API MCP server."""
 
+from functools import cached_property
+from pathlib import Path
 from typing import Optional
+
+import certifi
+import httpx
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, HttpUrl, field_validator
+
+
+CLOUD_API_URL = "https://api.ui.com"
 
 
 class Settings(BaseSettings):
     """Application settings."""
     
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=Path(__file__).resolve().parents[2] / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
     
     # UniFi Controller settings
-    unifi_controller_url: HttpUrl = Field(
-        ...,
+    unifi_controller_url: Optional[HttpUrl] = Field(
+        None,
         description="UniFi controller URL (e.g., https://xxx.unifi-hosting.ui.com)",
         alias="UNIFI_CONTROLLER_URL"
+    )
+    
+    unifi_console_id: Optional[str] = Field(
+        None,
+        description=(
+            "Console ID for the UniFi cloud connector (api.ui.com). Set this when using a "
+            "Site Manager key from unifi.ui.com; 'auto' picks the first console the key owns. "
+            "Leave unset to call the local console at UNIFI_CONTROLLER_URL."
+        ),
+        alias="UNIFI_CONSOLE_ID"
     )
     
     unifi_api_key: str = Field(
@@ -55,6 +73,12 @@ class Settings(BaseSettings):
         alias="UNIFI_DEFAULT_PAGE_SIZE"
     )
     
+    verify_ssl: bool = Field(
+        True,
+        description="Verify the controller TLS certificate (set false for a local console with a self-signed cert)",
+        alias="UNIFI_VERIFY_SSL"
+    )
+    
     # Logging settings
     log_level: str = Field(
         "INFO",
@@ -71,9 +95,37 @@ class Settings(BaseSettings):
         return v
     
     @property
+    def uses_cloud_connector(self) -> bool:
+        """Whether requests go through the api.ui.com cloud connector."""
+        return bool(self.unifi_console_id)
+    
+    @cached_property
     def api_base_url(self) -> str:
         """Get the full API base URL."""
-        return f"{self.unifi_controller_url}/proxy/network/integration/v1"
+        if self.uses_cloud_connector:
+            console_id = self.unifi_console_id
+            if console_id.lower() == "auto":
+                console_id = _discover_console_id(self.unifi_api_key)
+            return f"{CLOUD_API_URL}/v1/connector/consoles/{console_id}/proxy/network/integration/v1"
+        if not self.unifi_controller_url:
+            raise ValueError("Set UNIFI_CONTROLLER_URL or UNIFI_CONSOLE_ID")
+        return f"{str(self.unifi_controller_url).rstrip('/')}/proxy/network/integration/v1"
+
+
+def _discover_console_id(api_key: str) -> str:
+    """Return the ID of the first console the Site Manager key owns."""
+    response = httpx.get(
+        f"{CLOUD_API_URL}/v1/hosts",
+        headers={"X-API-KEY": api_key, "Accept": "application/json"},
+        verify=certifi.where(),
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    hosts = response.json().get("data", [])
+    consoles = [h for h in hosts if h.get("type") == "console" and h.get("owner")] or hosts
+    if not consoles:
+        raise ValueError("No UniFi consoles found for this API key")
+    return consoles[0]["id"]
 
 
 # Global settings instance

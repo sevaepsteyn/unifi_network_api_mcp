@@ -8,11 +8,6 @@ class UniFiError(Exception):
     pass
 
 
-class UniFiAuthError(UniFiError):
-    """Raised when authentication fails."""
-    pass
-
-
 class UniFiAPIError(UniFiError):
     """Raised when the UniFi API returns an error."""
     
@@ -43,6 +38,11 @@ class UniFiAPIError(UniFiError):
         if self.request_path:
             parts.append(f"Path: {self.request_path}")
         return " | ".join(parts)
+
+
+class UniFiAuthError(UniFiAPIError):
+    """Raised when authentication fails."""
+    pass
 
 
 class UniFiNotFoundError(UniFiAPIError):

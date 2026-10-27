@@ -5,6 +5,7 @@ import logging
 from typing import Dict, Any, Optional, List, Union
 from urllib.parse import urljoin, quote
 
+import certifi
 import httpx
 from httpx import HTTPStatusError, TimeoutException, ConnectError
 
@@ -41,6 +42,8 @@ class UniFiClient:
             base_url=self.base_url,
             headers=self.headers,
             timeout=httpx.Timeout(settings.api_timeout),
+            # api.ui.com always uses the public CA bundle, whatever SSL_CERT_FILE says
+            verify=certifi.where() if settings.uses_cloud_connector else settings.verify_ssl,
         )
         return self
     
@@ -70,7 +73,7 @@ class UniFiClient:
         request_path = error_data.get("requestPath")
         
         # Map status codes to specific exceptions
-        if status_code == 401:
+        if status_code in (401, 403):
             raise UniFiAuthError(
                 message,
                 status_code=status_code,
@@ -171,6 +174,20 @@ class UniFiClient:
         """Make GET request."""
         response = await self._request_with_retry("GET", path, params=params)
         return response.json()
+    
+    async def get_classic(self, site_name: str, path: str, v2: bool = False) -> Any:
+        """GET from the classic Network API, for data the integration API doesn't expose.
+        
+        site_name is the site's internalReference (e.g. "default"), not its UUID.
+        v1 responses are unwrapped from their {"meta", "data"} envelope; v2 responses are returned as-is.
+        """
+        network_url = self.base_url.rsplit("/integration/", 1)[0]
+        if v2:
+            url = f"{network_url}/v2/api/site/{quote(site_name)}/{path.lstrip('/')}"
+        else:
+            url = f"{network_url}/api/s/{quote(site_name)}/{path.lstrip('/')}"
+        response = await self._request_with_retry("GET", url)
+        return response.json() if v2 else response.json().get("data", [])
     
     async def post(
         self,
